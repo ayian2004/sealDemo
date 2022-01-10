@@ -157,6 +157,9 @@ void mte_2105_HE()
     evaluator.rescale_to_next_inplace(x1_encrypted_coeff2);
     cout << "    + Scale of 3*x after rescale: " << log2(x1_encrypted_coeff2.scale()) << " bits" << endl;
 
+    /*
+    To compute 3*x^2.
+    */
     cout << "Compute, relinearize, and rescale 3x^2." << endl;
     evaluator.multiply_inplace(x2_encrypted, x1_encrypted_coeff2);
     evaluator.relinearize_inplace(x2_encrypted, relin_keys);
