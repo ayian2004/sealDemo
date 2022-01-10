@@ -139,9 +139,11 @@ void mte_2105_HE()
     Ciphertext x2_encrypted;
     encryptor.encrypt(x_plain, x2_encrypted);
     print_line(__LINE__);
-    cout << "Compute and rescale 1*x." << endl;
+    cout << "Rescale 1*x." << endl;
     evaluator.multiply_plain_inplace(x2_encrypted, plain_coeff0);
+    cout << "    + Scale of 1*x before rescale: " << log2(x2_encrypted.scale()) << " bits" << endl;
     evaluator.rescale_to_next_inplace(x2_encrypted);
+    cout << "    + Scale of 1*x after rescale: " << log2(x2_encrypted.scale()) << " bits" << endl;
 
 
     /*
@@ -151,7 +153,10 @@ void mte_2105_HE()
     print_line(__LINE__);
     cout << "Compute and rescale 3*x." << endl;
     evaluator.multiply_plain(x1_encrypted, plain_coeff2, x1_encrypted_coeff2);
+    cout << "    + Scale of 3*x before rescale: " << log2(x1_encrypted_coeff2.scale()) << " bits" << endl;
     evaluator.rescale_to_next_inplace(x1_encrypted_coeff2);
+    cout << "    + Scale of 3*x after rescale: " << log2(x1_encrypted_coeff2.scale()) << " bits" << endl;
+
     cout << "Compute, relinearize, and rescale 3x^2." << endl;
     evaluator.multiply_inplace(x2_encrypted, x1_encrypted_coeff2);
     evaluator.relinearize_inplace(x2_encrypted, relin_keys);
