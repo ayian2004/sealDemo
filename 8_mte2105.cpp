@@ -132,35 +132,32 @@ void mte_2105_HE()
     Ciphertext x1_encrypted;
     encryptor.encrypt(x_plain, x1_encrypted);
 
+
     /*
-    To compute x^2 .
-    */
+    To compute 1*x .
+   */
     Ciphertext x2_encrypted;
+    encryptor.encrypt(x_plain, x2_encrypted);
     print_line(__LINE__);
-    cout << "Compute x^2 and relinearize:" << endl;
-    evaluator.square(x1_encrypted, x2_encrypted);
-    evaluator.relinearize_inplace(x2_encrypted, relin_keys);
-    cout << "    + Scale of x^2 before rescale: " << log2(x2_encrypted.scale()) << " bits" << endl;
+    cout << "Compute and rescale 1*x." << endl;
+    evaluator.multiply_plain_inplace(x2_encrypted, plain_coeff0);
+    evaluator.rescale_to_next_inplace(x2_encrypted);
+
 
     /*
-    Now rescale; in addition to a modulus switch, the scale is reduced down by
-    a factor equal to the prime that was switched away (40-bit prime). Hence, the
-    new scale should be close to 2^40. Note, however, that the scale is not equal
-    to 2^40: this is because the 40-bit prime is only close to 2^40.
+    To compute 3*x.
     */
-    print_line(__LINE__);
-    cout << "Rescale x^2." << endl;
-    evaluator.rescale_to_next_inplace(x2_encrypted);
-    cout << "    + Scale of x^2 after rescale: " << log2(x2_encrypted.scale()) << " bits" << endl;
-
-    print_line(__LINE__);
-    cout << "Compute and rescale 3*x^2." << endl;
     Ciphertext x1_encrypted_coeff2;
-    evaluator.multiply_plain_inplace(x1_encrypted, plain_coeff2);
-    evaluator.rescale_to_next_inplace(x1_encrypted);
-
-    Ciphertext x1_encrypted_new;
-    encryptor.encrypt(x_plain, x1_encrypted_new);
+    print_line(__LINE__);
+    cout << "Compute and rescale 3*x." << endl;
+    evaluator.multiply_plain(x1_encrypted, plain_coeff2, x1_encrypted_coeff2);
+    evaluator.rescale_to_next_inplace(x1_encrypted_coeff2);
+    cout << "Compute, relinearize, and rescale 3x^2." << endl;
+    evaluator.multiply_inplace(x2_encrypted, x1_encrypted_coeff2);
+    evaluator.relinearize_inplace(x2_encrypted, relin_keys);
+    cout << "    + Scale of 3*x^2 before rescale: " << log2(x2_encrypted.scale()) << " bits" << endl;
+    evaluator.rescale_to_next_inplace(x2_encrypted);
+    cout << "    + Scale of 3*x^2 after rescale: " << log2(x2_encrypted.scale()) << " bits" << endl;
 
     /*
     Next we compute the degree one term. All this requires is one multiply_plain
@@ -168,10 +165,10 @@ void mte_2105_HE()
     */
     print_line(__LINE__);
     cout << "Compute and rescale 0.4*x." << endl;
-    evaluator.multiply_plain_inplace(x1_encrypted_new, plain_coeff1);
-    cout << "    + Scale of 0.4*x before rescale: " << log2(x1_encrypted_new.scale()) << " bits" << endl;
-    evaluator.rescale_to_next_inplace(x1_encrypted_new);
-    cout << "    + Scale of 0.4*x after rescale: " << log2(x1_encrypted_new.scale()) << " bits" << endl;
+    evaluator.multiply_plain_inplace(x1_encrypted, plain_coeff1);
+    cout << "    + Scale of 0.4*x before rescale: " << log2(x1_encrypted.scale()) << " bits" << endl;
+    evaluator.rescale_to_next_inplace(x1_encrypted);
+    cout << "    + Scale of 0.4*x after rescale: " << log2(x1_encrypted.scale()) << " bits" << endl;
 
     /*
     Now we would hope to compute the sum of all three terms. However, there is
@@ -217,7 +214,7 @@ void mte_2105_HE()
     old_fmt.copyfmt(cout);
     cout << fixed << setprecision(10);
     cout << "    + Exact scale in 3*x^2: " << x2_encrypted.scale() << endl;
-    cout << "    + Exact scale in  0.4*x: " << x1_encrypted_new.scale() << endl;
+    cout << "    + Exact scale in  0.4*x: " << x1_encrypted.scale() << endl;
     cout << "    + Exact scale in      1: " << plain_coeff0.scale() << endl;
     cout << endl;
     cout.copyfmt(old_fmt);
@@ -239,8 +236,7 @@ void mte_2105_HE()
     print_line(__LINE__);
     cout << "Normalize scales to 2^40." << endl;
     x2_encrypted.scale() = pow(2.0, 40);
-    /* x1_encrypted.scale() = pow(2.0, 40);*/
-    x1_encrypted_new.scale() = pow(2.0, 40);
+    x1_encrypted.scale() = pow(2.0, 40);
 
     /*
     We still have a problem with mismatching encryption parameters. This is easy
@@ -251,8 +247,7 @@ void mte_2105_HE()
     print_line(__LINE__);
     cout << "Normalize encryption parameters to the lowest level." << endl;
     parms_id_type last_parms_id = x2_encrypted.parms_id();
-    /* evaluator.mod_switch_to_inplace(x1_encrypted, last_parms_id);*/
-    evaluator.mod_switch_to_inplace(x1_encrypted_new, last_parms_id);
+    evaluator.mod_switch_to_inplace(x1_encrypted, last_parms_id);
     evaluator.mod_switch_to_inplace(plain_coeff0, last_parms_id);
 
     /*
@@ -261,7 +256,7 @@ void mte_2105_HE()
     print_line(__LINE__);
     cout << "Compute 3*x^2 + 0.4*x + 1." << endl;
     Ciphertext encrypted_result;
-    evaluator.add(x2_encrypted, x1_encrypted_new, encrypted_result);
+    evaluator.add(x2_encrypted, x1_encrypted, encrypted_result);
     evaluator.add_plain_inplace(encrypted_result, plain_coeff0);
 
     /*
@@ -269,13 +264,13 @@ void mte_2105_HE()
     */
     Plaintext plain_result;
     print_line(__LINE__);
-    cout << "Decrypt and decode 3.0*x^2 + 0.4x + 1." << endl;
+    cout << "Decrypt and decode 3*x^2 + 0.4x + 1." << endl;
     cout << "    + Expected result:" << endl;
     vector<double> true_result;
     for (size_t i = 0; i < input.size(); i++)
     {
         double x = input[i];
-        true_result.push_back((3.0 * x + 0.4) * x + 1.0);
+        true_result.push_back((3 * x + 0.4) * x + 1);
     }
     print_vector(true_result, 3, 7);
 
